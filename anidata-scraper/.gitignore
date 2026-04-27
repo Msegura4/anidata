@@ -11,9 +11,8 @@ build/
 dist/
 
 # Virtual env
-env_*/
-venv/
 .venv/
+venv/
 env/
 
 # IDE
@@ -21,16 +20,10 @@ env/
 .idea/
 *.swp
 
-# Data générée
+# Data
 data/
 *.json
-*.csv
-
-# Mock site
-mock-site/
-
-# Logs / tools
-*.log
+!tests/**/*.json
 
 # OS
 .DS_Store
