@@ -13,9 +13,9 @@ name: CI
 # Évènements qui déclenchent le workflow
 on:
   push:
-    branches: [main]
+    branches: [math/test, main]
   pull_request:
-    branches: [main]
+    branches: [math/test, main]
 
 # Empêche que deux exécutions tournent en parallèle sur la même branche :
 # le nouveau push annule l'ancien run (économise du temps de runner).
