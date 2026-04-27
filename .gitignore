@@ -217,6 +217,12 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+
+# Données (trop volumineuses pour Git)
+data/
+data/*.csv
+data/*.zip
+
 # Airflow
 airflow/logs/*
 !airflow/logs/.gitkeep
