@@ -216,3 +216,39 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Données (trop volumineuses pour Git)
+data/*.csv
+data/*.zip
+
+# Airflow
+airflow/logs/*
+!airflow/logs/.gitkeep
+
+# Jupyter
+jupyter/notebooks/.ipynb_checkpoints/
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+.env.local
+
+# ── Dossier de travail ───────────────────────────────
+Z_input test/
+Z_architecture/
+Z_output/
+Z_elk/
+Z_grafana/
+Z_notebooks/
+Z_trash/
+
+# ── Fichiers de travail ───────────────────────────────
+Z_start.sh
