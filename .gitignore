@@ -219,8 +219,7 @@ __marimo__/
 
 
 # Données (trop volumineuses pour Git)
-data/*.csv
-data/*.zip
+# Tous les fichiers data sont maintenant trackés
 
 # Airflow
 airflow/logs/*
