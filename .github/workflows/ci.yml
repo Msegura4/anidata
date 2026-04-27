@@ -13,9 +13,9 @@ name: CI
 # Évènements qui déclenchent le workflow
 on:
   push:
-    branches: [main]
+    branches: [main, test-kemil]
   pull_request:
-    branches: [main]
+    branches: [main, test-kemil]
 
 # Empêche que deux exécutions tournent en parallèle sur la même branche :
 # le nouveau push annule l'ancien run (économise du temps de runner).
