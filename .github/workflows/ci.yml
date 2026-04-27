@@ -45,7 +45,7 @@ jobs:
         run: pip install ruff
 
       - name: Vérification du style
-        run: ruff check anidata_scraper/ tests/
+        run: ruff check anidata-scraper/anidata_scraper/ anidata-scraper/tests/
 
   # ---------------------------------------------------------------------------
   # JOB 2 : TESTS
