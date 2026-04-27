@@ -217,10 +217,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-
-# Données (trop volumineuses pour Git)
-# Tous les fichiers data sont maintenant trackés
-
 # Airflow
 airflow/logs/*
 !airflow/logs/.gitkeep
@@ -251,3 +247,8 @@ Z_trash/
 
 # ── Fichiers de travail ───────────────────────────────
 Z_start.sh
+*\ 2.*
+
+# ── Données : on garde la structure des dossiers, on ignore les CSV ──
+data/*.csv
+data/**/*.csv
