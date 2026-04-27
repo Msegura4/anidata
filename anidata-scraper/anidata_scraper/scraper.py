@@ -414,5 +414,8 @@ def main() -> None:
     print(f"\n✓ Fichier produit : {filepath}")
 
 
+# test final 2
+# ajout d’un commentaire
+
 if __name__ == "__main__":
     main()
