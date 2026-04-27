@@ -219,7 +219,6 @@ __marimo__/
 
 
 # Données (trop volumineuses pour Git)
-data/
 data/*.csv
 data/*.zip
 
