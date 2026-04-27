@@ -28,16 +28,18 @@ logger = logging.getLogger(__name__)
 
 # ============== MODÈLE DE DONNÉES ==============
 
+
 @dataclass
 class Anime:
     """Représente un anime scrapé depuis le mock-site."""
+
     id: int
     title_en: str
     title_jp: str | None
     detail_url: str
     year: int | None
-    studio: str | None          # None si non renseigné (piège)
-    score: float | None         # None si "N/A" (piège)
+    studio: str | None  # None si non renseigné (piège)
+    score: float | None  # None si "N/A" (piège)
     genres: list[str] = field(default_factory=list)
     # Champs enrichis via la page détail :
     type: str | None = None
@@ -49,6 +51,7 @@ class Anime:
 @dataclass
 class NewsArticle:
     """Représente un article d'actualité."""
+
     title: str
     url: str
     category: str | None
@@ -58,13 +61,14 @@ class NewsArticle:
 
 # ============== SCRAPER ==============
 
+
 class AniDexScraper:
     """Client de scraping pour le mock-site AniDex."""
 
     DEFAULT_TIMEOUT = 10
     DEFAULT_MAX_RETRIES = 3
     DEFAULT_BACKOFF = 1.0  # secondes entre retries (exponentiel)
-    DEFAULT_DELAY = 0.05   # politesse entre requêtes (secondes)
+    DEFAULT_DELAY = 0.05  # politesse entre requêtes (secondes)
 
     def __init__(
         self,
@@ -78,10 +82,12 @@ class AniDexScraper:
         self.max_retries = max_retries
         self.delay = delay
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "AniData-Lab-Scraper/1.0 (educational)",
-            "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "AniData-Lab-Scraper/1.0 (educational)",
+                "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+            }
+        )
 
     # ---------- HTTP avec retry ----------
 
@@ -107,7 +113,11 @@ class AniDexScraper:
                 wait = self.DEFAULT_BACKOFF * (2 ** (attempt - 1))
                 logger.warning(
                     "Erreur réseau sur %s (tentative %d/%d) : %s — retry dans %.1fs",
-                    url, attempt, self.max_retries, exc, wait,
+                    url,
+                    attempt,
+                    self.max_retries,
+                    exc,
+                    wait,
                 )
                 time.sleep(wait)
             except requests.HTTPError as exc:
@@ -116,7 +126,11 @@ class AniDexScraper:
                     wait = self.DEFAULT_BACKOFF * (2 ** (attempt - 1))
                     logger.warning(
                         "Erreur %s sur %s (tentative %d/%d) — retry dans %.1fs",
-                        status, url, attempt, self.max_retries, wait,
+                        status,
+                        url,
+                        attempt,
+                        self.max_retries,
+                        wait,
                     )
                     time.sleep(wait)
                     last_exc = exc
@@ -124,7 +138,9 @@ class AniDexScraper:
                 # 4xx ou dernier 5xx : on ne retry pas
                 raise
 
-        raise RuntimeError(f"Échec après {self.max_retries} tentatives sur {url}") from last_exc
+        raise RuntimeError(
+            f"Échec après {self.max_retries} tentatives sur {url}"
+        ) from last_exc
 
     # ---------- Parsing ----------
 
@@ -265,12 +281,14 @@ class AniDexScraper:
             time_el = article_el.select_one("time")
             if not title_link:
                 continue
-            articles.append(NewsArticle(
-                title=title_link.get_text(strip=True),
-                url=title_link.get("href", ""),
-                category=article_el.get("data-news-category"),
-                published_at=time_el.get("datetime") if time_el else None,
-            ))
+            articles.append(
+                NewsArticle(
+                    title=title_link.get_text(strip=True),
+                    url=title_link.get("href", ""),
+                    category=article_el.get("data-news-category"),
+                    published_at=time_el.get("datetime") if time_el else None,
+                )
+            )
         logger.info("%d actualités récupérées", len(articles))
         return articles
 
@@ -279,14 +297,18 @@ class AniDexScraper:
     def scrape_all(self, enrich: bool = True) -> dict:
         """Scrape tout le catalogue + actualités et renvoie un dict sérialisable."""
         total_pages = self.get_total_pages()
-        logger.info("Début du scraping — %d pages de catalogue à parcourir", total_pages)
+        logger.info(
+            "Début du scraping — %d pages de catalogue à parcourir", total_pages
+        )
 
         all_animes: list[Anime] = []
         for page_num in range(1, total_pages + 1):
             all_animes.extend(self.scrape_catalog_page(page_num))
 
         if enrich:
-            logger.info("Enrichissement via les pages détail (%d animes)...", len(all_animes))
+            logger.info(
+                "Enrichissement via les pages détail (%d animes)...", len(all_animes)
+            )
             for i, anime in enumerate(all_animes, 1):
                 self.enrich_from_detail(anime)
                 if i % 20 == 0:
@@ -309,6 +331,7 @@ class AniDexScraper:
 
 
 # ============== API POUR AIRFLOW ==============
+
 
 def scrape_to_file(
     output_dir: str | Path,
@@ -350,6 +373,7 @@ def scrape_to_file(
 
 
 # ============== CLI ==============
+
 
 def _configure_logging(verbose: bool) -> None:
     logging.basicConfig(
