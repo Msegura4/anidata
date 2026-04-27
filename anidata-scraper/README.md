@@ -31,7 +31,7 @@ pip install -r requirements-dev.txt
 
 ```bash
 # Scraping complet vers ./data/raw/
-python -m anidata_scraper.scraper --base-url http://localhost:8088 --output-dir ./data/raw
+python -m anidata_scraper.scraper --base-url http://localhost:8088 --output-dir ../../data/input
 
 # Scraping rapide (sans enrichissement via pages détail)
 python -m anidata_scraper.scraper --no-enrich
