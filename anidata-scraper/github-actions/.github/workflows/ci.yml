@@ -1,0 +1,90 @@
+name: CI
+
+# ===========================================================================
+# WORKFLOW CI — AniData Scraper
+# ---------------------------------------------------------------------------
+# Lance le lint et les tests à chaque push et à chaque Pull Request.
+# Utilisé pour la séance 2 (CI seule, sans déploiement).
+#
+# La progression vers la version complète CI/CD avec build+push d'image
+# Docker se fait dans .github/workflows/ci-cd.yml (séance 3).
+# ===========================================================================
+
+# Évènements qui déclenchent le workflow
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Empêche que deux exécutions tournent en parallèle sur la même branche :
+# le nouveau push annule l'ancien run (économise du temps de runner).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # JOB 1 : LINT
+  # Vérifie le style de code avec ruff. Très rapide (~10 secondes).
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Installation de ruff
+        run: pip install ruff
+
+      - name: Vérification du style
+        run: ruff check anidata_scraper/ tests/
+
+  # ---------------------------------------------------------------------------
+  # JOB 2 : TESTS
+  # Exécute pytest avec couverture sur Python 3.10 et 3.11.
+  # La matrice permet de tester plusieurs versions en parallèle.
+  # ---------------------------------------------------------------------------
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false continue les autres jobs même si un échoue
+      # (utile pour voir si le bug est lié à une version spécifique)
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Installation des dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Exécution des tests avec couverture
+        run: pytest --cov=anidata_scraper --cov-report=term-missing --cov-report=xml
+
+      - name: Upload du rapport de couverture (artefact)
+        # Uniquement sur Python 3.10 pour éviter les doublons.
+        if: matrix.python-version == '3.10'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7
