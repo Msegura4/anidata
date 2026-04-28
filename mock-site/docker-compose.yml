@@ -1,0 +1,18 @@
+services:
+  mock-site:
+    image: nginx:alpine
+    container_name: anidata-mock-site
+    ports:
+      - "8088:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    restart: unless-stopped
+    # Pour l'intégration au docker-compose Airflow, retirer le mapping de ports
+    # et rejoindre le réseau commun (voir README.md).
+    networks:
+      - anidata-network
+
+networks:
+  anidata-network:
+    driver: bridge
+    name: anidata-network
