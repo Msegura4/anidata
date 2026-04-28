@@ -257,7 +257,7 @@ docker compose up -d
 
 ---
 
-## 📚 Ressources et autres...
+## 📚 Ressources et autres....
 
 - [Dataset Kaggle](https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020)
 - [Documentation Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html)
