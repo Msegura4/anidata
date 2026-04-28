@@ -1,4 +1,4 @@
-# AniDex — Mock-site pour AniData Lab - - - semaine DevOps & CI/CD
+# AniDex — Mock-site pour AniData Lab - - - - - - semaine DevOps & CI/CD
 
 Site HTML statique simulant une encyclopédie d'anime type MyAnimeList, destiné
 à servir de cible de scraping dans le cadre du cours **AniData Lab — semaine 2
