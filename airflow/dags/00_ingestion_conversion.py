@@ -48,18 +48,22 @@ LOG_DIR      = "/opt/airflow/logs/pipeline"
 
 # Mapping de colonnes : nom source → nom cible (standard DAG 2)
 COL_MAP = {
-    "anime_id": "MAL_ID",
-    "name":     "Name",
-    "genre":    "Genres",   # JSON : liste ou chaîne
-    "genres":   "Genres",   # XML  : balise plurielle imbriquée
-    "type":     "Type",
-    "episodes": "Episodes",
-    "rating":   "Score",
-    "members":  "Members",
+    # Format scraper anidata (source actuelle)
+    "id":       "MAL_ID",
+    "title_en": "Name",
+    "score":    "Score",
     "year":     "Aired",
     "studio":   "Studios",
-    # champs supplémentaires acceptés (non bloquants)
+    "genres":   "Genres",
+    "type":     "Type",
+    "episodes": "Episodes",
     "status":   "Status",
+    # Format legacy (compatibilité fichiers manuels JSON/XML)
+    "anime_id": "MAL_ID",
+    "name":     "Name",
+    "genre":    "Genres",
+    "rating":   "Score",
+    "members":  "Members",
 }
 
 
@@ -401,7 +405,8 @@ def valider_et_ecrire_metadata(**kwargs) -> str:
     log.info(f"✅ CSV validé : {len(df)} lignes × {len(df.columns)} colonnes")
 
     # Colonnes minimales attendues par DAG 2
-    COLONNES_MIN = ["MAL_ID", "Name", "Score", "Members"]
+    # Members absent du scraper (mock-site ne fournit pas ce champ)
+    COLONNES_MIN = ["MAL_ID", "Name", "Score"]
     manquantes = [c for c in COLONNES_MIN if c not in df.columns]
     if manquantes:
         raise ValueError(

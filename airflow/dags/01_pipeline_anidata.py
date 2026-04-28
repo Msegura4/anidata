@@ -377,7 +377,8 @@ def validation_export(**kwargs) -> str:
     # ── ASSERTIONS ────────────────────────────────────────────────────────────
 
     # 1. Colonnes obligatoires
-    COLONNES_REQUISES = ["MAL_ID", "Name", "Score", "Members"]
+    # Members absent du scraper (mock-site ne fournit pas ce champ)
+    COLONNES_REQUISES = ["MAL_ID", "Name", "Score"]
     for col in COLONNES_REQUISES:
         if col not in df.columns:
             erreurs.append(f"Colonne obligatoire manquante : '{col}'")

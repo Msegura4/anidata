@@ -1,18 +1,23 @@
 """
-Webhook server — GitHub CI listener
-=====================================
-Reçoit les events GitHub check_run, vérifie la signature HMAC,
-et retourne les infos du CI quand les tests sont validés.
+Webhook server — GitHub CI → Scraper trigger
+=============================================
+Reçoit les events GitHub check_run, vérifie la signature HMAC.
+Quand les 3 checks sont success sur la branche surveillée,
+lance le scraper anidata en subprocess.
 
-Lancement : python webhook_server.py
+Lancement : python webhook/webhook_server.py
 """
 
 import hashlib
 import hmac
 import logging
 import os
+import subprocess
+import sys
+import threading
 from pathlib import Path
 
+import requests as http_requests
 from dotenv import load_dotenv
 from flask import Flask, abort, jsonify, request
 
@@ -22,12 +27,32 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 # ── Configuration ─────────────────────────────────────────────────
 WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 WATCHED_BRANCH = os.environ.get("WATCHED_BRANCH", "main")
-PORT           = int(os.environ.get("PORT", 5050))
+MOCK_SITE_URL    = os.environ.get("MOCK_SITE_URL",    "http://localhost:8088")
+AIRFLOW_URL      = os.environ.get("AIRFLOW_URL",      "http://localhost:8080")
+AIRFLOW_USER     = os.environ.get("AIRFLOW_USER",     "admin")
+AIRFLOW_PASSWORD = os.environ.get("AIRFLOW_PASSWORD", "admin")
+DAG_ID           = "00_ingestion_conversion"
+PORT             = int(os.environ.get("PORT", 5050))
+
+# Chemins
+ROOT_DIR    = Path(__file__).parent.parent
+SCRAPER_DIR = ROOT_DIR / "anidata-scraper"
+OUTPUT_DIR  = ROOT_DIR / "data" / "input"
+
+# Les 3 checks qui doivent tous passer
+REQUIRED_CHECKS = {
+    "Tests (Python 3.10)",
+    "Tests (Python 3.11)",
+    "Lint (ruff)",
+}
 
 # ── App ───────────────────────────────────────────────────────────
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
+
+# État en mémoire : { commit_sha: set(checks passés) }
+ci_results: dict[str, set] = {}
 
 
 def verify_signature(payload_bytes: bytes, signature_header: str) -> bool:
@@ -41,6 +66,52 @@ def verify_signature(payload_bytes: bytes, signature_header: str) -> bool:
         WEBHOOK_SECRET.encode(), payload_bytes, hashlib.sha256
     ).hexdigest()
     return hmac.compare_digest(f"sha256={expected}", signature_header)
+
+
+def trigger_dag() -> None:
+    """Appelle l'API REST Airflow pour déclencher le DAG 00_ingestion_conversion."""
+    url = f"{AIRFLOW_URL}/api/v1/dags/{DAG_ID}/dagRuns"
+    try:
+        resp = http_requests.post(
+            url,
+            auth=(AIRFLOW_USER, AIRFLOW_PASSWORD),
+            json={"conf": {"source": "github_webhook"}},
+            timeout=10,
+        )
+        if resp.status_code in (200, 201):
+            log.info(f"HOUSTON C'EST PARTIIII DAG {DAG_ID} déclenché (HTTP {resp.status_code})")
+        else:
+            log.error(f"❌ Airflow a répondu {resp.status_code} : {resp.text}")
+    except http_requests.exceptions.RequestException as e:
+        log.error(f"❌ Impossible de contacter Airflow : {e}")
+
+
+def _run_scraper() -> None:
+    """Exécute le scraper et déclenche le DAG si succès."""
+    cmd = [
+        sys.executable, "-m", "anidata_scraper.scraper",
+        "--base-url", MOCK_SITE_URL,
+        "--output-dir", str(OUTPUT_DIR),
+    ]
+    log.info(f"Scraper démarré — sortie vers {OUTPUT_DIR}")
+    proc = subprocess.run(
+        cmd,
+        cwd=str(SCRAPER_DIR),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode == 0:
+        log.info(f"✅ Scraper terminé avec succès\n{proc.stdout.strip()}")
+        trigger_dag()
+    else:
+        log.error(f"❌ Scraper échoué (code {proc.returncode})\n{proc.stderr.strip()}")
+
+
+def launch_scraper() -> None:
+    """Lance le scraper dans un thread séparé pour ne pas bloquer le serveur."""
+    thread = threading.Thread(target=_run_scraper, daemon=True)
+    thread.start()
+    log.info("Thread scraper lancé")
 
 
 @app.route("/webhook", methods=["POST"])
@@ -68,28 +139,42 @@ def github_webhook():
     name       = check_run.get("name")
     commit_sha = check_run.get("head_sha")
 
-    log.info(f"check_run reçu — name={name}, conclusion={conclusion}, branch={branch}, sha={commit_sha}")
+    log.info(f"check_run reçu — name={name}, conclusion={conclusion}, branch={branch}")
 
-    # 4. Filtrage branche
+    # 4. Filtres
     if branch != WATCHED_BRANCH:
         return jsonify({"status": "ignored", "reason": f"branch={branch}"}), 200
 
-    # 5. Retour selon conclusion
-    if conclusion == "success":
-        log.info(f"✅ CI success sur {branch} ({commit_sha})")
+    if conclusion != "success":
+        return jsonify({"status": "ignored", "reason": f"conclusion={conclusion}"}), 200
+
+    if name not in REQUIRED_CHECKS:
+        return jsonify({"status": "ignored", "reason": f"check inconnu: {name}"}), 200
+
+    # 5. Accumulation des checks réussis pour ce commit
+    if commit_sha not in ci_results:
+        ci_results[commit_sha] = set()
+    ci_results[commit_sha].add(name)
+
+    passed = ci_results[commit_sha]
+    remaining = REQUIRED_CHECKS - passed
+    log.info(f"✅ {name} — {len(passed)}/{len(REQUIRED_CHECKS)} checks OK pour {commit_sha[:8]}")
+
+    # 6. Tous les checks sont passés → lancement scraper
+    if not remaining:
+        log.info(f"YES YES YES - Tous les checks sont success — lancement du scraper")
+        del ci_results[commit_sha]  # nettoyage mémoire
+        launch_scraper()
         return jsonify({
-            "status":     "success",
-            "branch":     branch,
+            "status":     "triggered",
             "commit_sha": commit_sha,
-            "check_name": name,
+            "message":    "Tous les checks sont success, scraper lancé",
         }), 200
 
-    log.info(f"CI {conclusion} — rien à faire")
     return jsonify({
-        "status":     conclusion,
-        "branch":     branch,
-        "commit_sha": commit_sha,
-        "check_name": name,
+        "status":    "partial",
+        "passed":    list(passed),
+        "remaining": list(remaining),
     }), 200
 
 
@@ -100,4 +185,6 @@ def health():
 
 if __name__ == "__main__":
     log.info(f"Webhook server démarré sur le port {PORT}")
+    log.info(f"Branche surveillée : {WATCHED_BRANCH}")
+    log.info(f"Checks attendus : {REQUIRED_CHECKS}")
     app.run(host="0.0.0.0", port=PORT)
